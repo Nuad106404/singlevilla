@@ -47,7 +47,7 @@ const villaImages = [
   }
 ];
 
-const AUTOPLAY_INTERVAL = 5000;
+const AUTOPLAY_INTERVAL = 5001;
 const TRANSITION_DURATION = 0.75;
 
 interface SlideProps {

@@ -5,7 +5,11 @@ import { VillaHero } from './components/villa/VillaHero';
 import { VillaDetails } from './components/villa/VillaDetails';
 import { BookingCard } from './components/booking/BookingCard';
 import { BookingPage } from './pages/BookingPage';
+import { LoginForm } from './components/auth/LoginForm';
+import { RegisterForm } from './components/auth/RegisterForm';
+import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { ThemeProvider } from './context/ThemeContext';
+import { AuthProvider } from './context/AuthContext';
 
 function HomePage() {
   return (
@@ -29,17 +33,31 @@ function HomePage() {
 
 function App() {
   return (
-    <ThemeProvider>
-      <Router>
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
-          <Header />
-          <Routes>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/booking" element={<BookingPage />} />
-          </Routes>
-        </div>
-      </Router>
-    </ThemeProvider>
+    <AuthProvider>
+      <ThemeProvider>
+        <Router>
+          <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
+            <Header />
+            <Routes>
+              <Route path="/" element={<HomePage />} />
+              <Route path="/booking" element={
+                <ProtectedRoute>
+                  <BookingPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/login" element={<LoginForm />} />
+              <Route path="/register" element={<RegisterForm />} />
+              <Route path="/admin/*" element={
+                <ProtectedRoute requireAdmin>
+                  {/* Add your admin routes here */}
+                  <div>Admin Dashboard</div>
+                </ProtectedRoute>
+              } />
+            </Routes>
+          </div>
+        </Router>
+      </ThemeProvider>
+    </AuthProvider>
   );
 }
 
