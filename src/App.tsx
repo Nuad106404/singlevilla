@@ -9,7 +9,10 @@ import { LoginForm } from './components/auth/LoginForm';
 import { RegisterForm } from './components/auth/RegisterForm';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { ThemeProvider } from './context/ThemeContext';
-import { AuthProvider } from './context/AuthContext';
+import { Provider } from 'react-redux';
+import { store } from './store';
+import { DashboardLayout } from './components/dashboard/DashboardLayout';
+import { DashboardPage } from './pages/dashboard/DashboardPage';
 
 function HomePage() {
   return (
@@ -33,31 +36,32 @@ function HomePage() {
 
 function App() {
   return (
-    <AuthProvider>
+    <Provider store={store}>
       <ThemeProvider>
         <Router>
           <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
-            <Header />
             <Routes>
-              <Route path="/" element={<HomePage />} />
+              <Route path="/" element={<><Header /><HomePage /></>} />
               <Route path="/booking" element={
                 <ProtectedRoute>
-                  <BookingPage />
+                  <><Header /><BookingPage /></>
                 </ProtectedRoute>
               } />
               <Route path="/login" element={<LoginForm />} />
               <Route path="/register" element={<RegisterForm />} />
               <Route path="/admin/*" element={
                 <ProtectedRoute requireAdmin>
-                  {/* Add your admin routes here */}
-                  <div>Admin Dashboard</div>
+                  <DashboardLayout />
                 </ProtectedRoute>
-              } />
+              }>
+                <Route index element={<DashboardPage />} />
+                <Route path="dashboard" element={<DashboardPage />} />
+              </Route>
             </Routes>
           </div>
         </Router>
       </ThemeProvider>
-    </AuthProvider>
+    </Provider>
   );
 }
 
