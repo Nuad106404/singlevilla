@@ -1,18 +1,26 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import React, { Suspense, lazy } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Header } from './components/layout/Header';
 import { VillaHero } from './components/villa/VillaHero';
 import { VillaDetails } from './components/villa/VillaDetails';
 import { BookingCard } from './components/booking/BookingCard';
-import { BookingPage } from './pages/BookingPage';
 import { LoginForm } from './components/auth/LoginForm';
 import { RegisterForm } from './components/auth/RegisterForm';
-import { ProtectedRoute } from './components/auth/ProtectedRoute';
+import { AdminRoute } from './components/auth/AdminRoute';
+import { AuthRoute } from './components/auth/AuthRoute';
 import { ThemeProvider } from './context/ThemeContext';
+import { AuthProvider } from './context/AuthContext';
 import { Provider } from 'react-redux';
 import { store } from './store';
-import { DashboardLayout } from './components/dashboard/DashboardLayout';
-import { DashboardPage } from './pages/dashboard/DashboardPage';
+
+// Lazy load components
+const AdminDashboard = lazy(() => import('./pages/dashboard/AdminDashboard'));
+const AdminBookings = lazy(() => import('./pages/dashboard/AdminBookings'));
+const AdminUsers = lazy(() => import('./pages/dashboard/AdminUsers'));
+const AdminSettings = lazy(() => import('./pages/dashboard/AdminSettings'));
+const DashboardLayout = lazy(() => import('./components/dashboard/DashboardLayout'));
+const BookingPage = lazy(() => import('./pages/BookingPage'));
+const VerifySuccessPage = lazy(() => import('./pages/auth/VerifySuccessPage'));
 
 function HomePage() {
   return (
@@ -34,33 +42,65 @@ function HomePage() {
   );
 }
 
+const LoadingFallback = () => (
+  <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+    <div className="w-12 h-12 border-4 border-amber-600 border-t-transparent rounded-full animate-spin"></div>
+  </div>
+);
+
 function App() {
   return (
     <Provider store={store}>
-      <ThemeProvider>
-        <Router>
-          <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
-            <Routes>
-              <Route path="/" element={<><Header /><HomePage /></>} />
-              <Route path="/booking" element={
-                <ProtectedRoute>
-                  <><Header /><BookingPage /></>
-                </ProtectedRoute>
-              } />
-              <Route path="/login" element={<LoginForm />} />
-              <Route path="/register" element={<RegisterForm />} />
-              <Route path="/admin/*" element={
-                <ProtectedRoute requireAdmin>
-                  <DashboardLayout />
-                </ProtectedRoute>
-              }>
-                <Route index element={<DashboardPage />} />
-                <Route path="dashboard" element={<DashboardPage />} />
-              </Route>
-            </Routes>
-          </div>
-        </Router>
-      </ThemeProvider>
+      <AuthProvider>
+        <ThemeProvider>
+          <Router>
+            <Suspense fallback={<LoadingFallback />}>
+              <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
+                <Routes>
+                  {/* Public Routes */}
+                  <Route path="/" element={<><Header /><HomePage /></>} />
+                  <Route path="/booking" element={<><Header /><Suspense fallback={<LoadingFallback />}><BookingPage /></Suspense></>} />
+                  
+                  {/* Auth Routes - Redirect to appropriate page if already logged in */}
+                  <Route path="/login" element={
+                    <AuthRoute>
+                      <LoginForm />
+                    </AuthRoute>
+                  } />
+                  <Route path="/register" element={
+                    <AuthRoute>
+                      <RegisterForm />
+                    </AuthRoute>
+                  } />
+                  <Route path="/auth/verify-success" element={<VerifySuccessPage />} />
+
+                  {/* Admin Routes - Protected and nested */}
+                  <Route
+                    path="/admin/*"
+                    element={
+                      <AdminRoute>
+                        <Suspense fallback={<LoadingFallback />}>
+                          <DashboardLayout>
+                            <Routes>
+                              <Route index element={<AdminDashboard />} />
+                              <Route path="bookings" element={<AdminBookings />} />
+                              <Route path="users" element={<AdminUsers />} />
+                              <Route path="settings" element={<AdminSettings />} />
+                            </Routes>
+                          </DashboardLayout>
+                        </Suspense>
+                      </AdminRoute>
+                    }
+                  />
+
+                  {/* Catch all - redirect to home */}
+                  <Route path="*" element={<Navigate to="/" replace />} />
+                </Routes>
+              </div>
+            </Suspense>
+          </Router>
+        </ThemeProvider>
+      </AuthProvider>
     </Provider>
   );
 }

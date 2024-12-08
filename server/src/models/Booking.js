@@ -1,71 +1,137 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const bookingSchema = new mongoose.Schema({
-  bookingId: {
-    type: String,
-    required: true,
-    unique: true,
-  },
-  customer: {
-    firstName: { type: String, required: true },
-    lastName: { type: String, required: true },
-    email: { type: String, required: true },
-    phone: { type: String },
+  user: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: [true, 'Booking must belong to a user']
   },
   checkIn: {
     type: Date,
-    required: true,
+    required: [true, 'Booking must have a check-in date']
   },
   checkOut: {
     type: Date,
-    required: true,
+    required: [true, 'Booking must have a check-out date']
   },
   guests: {
-    adults: { type: Number, required: true },
-    children: { type: Number, default: 0 },
-  },
-  amount: {
     type: Number,
-    required: true,
+    required: [true, 'Booking must have number of guests'],
+    min: [1, 'Number of guests must be at least 1'],
+    max: [8, 'Number of guests cannot exceed 8']
+  },
+  totalPrice: {
+    type: Number,
+    required: [true, 'Booking must have a total price']
   },
   status: {
     type: String,
-    enum: ['pending', 'approved', 'canceled'],
-    default: 'pending',
+    enum: {
+      values: ['pending', 'confirmed', 'cancelled'],
+      message: '{VALUE} is not a valid status'
+    },
+    default: 'pending'
   },
-  specialRequests: String,
-  createdAt: {
-    type: Date,
-    default: Date.now,
+  paymentMethod: {
+    type: String,
+    enum: {
+      values: ['bank_transfer', 'promptpay'],
+      message: '{VALUE} is not a valid payment method'
+    },
+    required: [true, 'Booking must have a payment method']
   },
-  updatedAt: {
-    type: Date,
-    default: Date.now,
+  paymentStatus: {
+    type: String,
+    enum: {
+      values: ['pending', 'completed', 'failed'],
+      message: '{VALUE} is not a valid payment status'
+    },
+    default: 'pending'
   },
+  paymentSlipUrl: {
+    type: String,
+    validate: {
+      validator: function(v) {
+        if (!v) return true; // Allow empty value
+        return /^https:\/\//.test(v);
+      },
+      message: 'Payment slip URL must be a secure URL'
+    }
+  },
+  specialRequests: {
+    type: String,
+    maxLength: [500, 'Special requests cannot exceed 500 characters']
+  },
+  cancellationReason: {
+    type: String,
+    maxLength: [500, 'Cancellation reason cannot exceed 500 characters']
+  },
+  cancelledAt: {
+    type: Date
+  },
+  refundAmount: {
+    type: Number
+  }
+}, {
+  timestamps: true,
+  toJSON: { virtuals: true },
+  toObject: { virtuals: true }
 });
 
-// Generate unique booking ID before saving
-bookingSchema.pre('save', async function(next) {
-  if (this.isNew) {
-    const date = new Date();
-    const year = date.getFullYear().toString().slice(-2);
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-    const count = await this.constructor.countDocuments({
-      createdAt: {
-        $gte: new Date(date.getFullYear(), date.getMonth(), 1),
-        $lt: new Date(date.getFullYear(), date.getMonth() + 1, 1),
-      },
-    });
-    this.bookingId = `BK${year}${month}${(count + 1).toString().padStart(4, '0')}`;
+// Indexes for better query performance
+bookingSchema.index({ user: 1, createdAt: -1 });
+bookingSchema.index({ checkIn: 1, checkOut: 1 });
+bookingSchema.index({ status: 1 });
+
+// Static method to check availability
+bookingSchema.statics.checkAvailability = async function(checkIn, checkOut) {
+  const overlappingBookings = await this.find({
+    status: { $ne: 'cancelled' },
+    $or: [
+      {
+        checkIn: { $lte: checkOut },
+        checkOut: { $gte: checkIn }
+      }
+    ]
+  });
+
+  return overlappingBookings.length === 0;
+};
+
+// Instance method to calculate refund amount
+bookingSchema.methods.calculateRefundAmount = function() {
+  if (this.status !== 'cancelled') return 0;
+
+  const now = new Date();
+  const checkIn = new Date(this.checkIn);
+  const daysUntilCheckIn = Math.ceil((checkIn - now) / (1000 * 60 * 60 * 24));
+
+  // Refund policy:
+  // - Cancel more than 7 days before check-in: 100% refund
+  // - Cancel 3-7 days before check-in: 50% refund
+  // - Cancel less than 3 days before check-in: no refund
+  if (daysUntilCheckIn > 7) {
+    return this.totalPrice;
+  } else if (daysUntilCheckIn >= 3) {
+    return this.totalPrice * 0.5;
   }
-  this.updatedAt = new Date();
+  return 0;
+};
+
+// Instance method to cancel booking
+bookingSchema.methods.cancel = async function(reason = '') {
+  this.status = 'cancelled';
+  this.cancellationReason = reason;
+  this.cancelledAt = new Date();
+  this.refundAmount = this.calculateRefundAmount();
+};
+
+// Pre-save middleware to validate dates
+bookingSchema.pre('save', function(next) {
+  if (this.checkOut <= this.checkIn) {
+    next(new Error('Check-out date must be after check-in date'));
+  }
   next();
 });
 
-// Add indexes for common queries
-bookingSchema.index({ bookingId: 1 });
-bookingSchema.index({ 'customer.email': 1 });
-bookingSchema.index({ status: 1 });
-bookingSchema.index({ checkIn: 1, checkOut: 1 });
-
-module.exports = mongoose.model('Booking', bookingSchema);
+export default mongoose.model('Booking', bookingSchema);

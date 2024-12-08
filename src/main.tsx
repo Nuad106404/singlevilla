@@ -1,11 +1,18 @@
-import { StrictMode } from 'react';
-import { createRoot } from 'react-dom/client';
+import React from 'react';
+import ReactDOM from 'react-dom/client';
 import App from './App';
-import './i18n/config';
 import './index.css';
+import axios from 'axios';
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
+// Configure axios defaults
+axios.defaults.baseURL = 'http://localhost:5001/api';
+axios.defaults.headers.post['Content-Type'] = 'application/json';
+
+// Initialize i18next
+import './i18n/config';
+
+ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
+  <React.StrictMode>
     <App />
-  </StrictMode>
+  </React.StrictMode>
 );

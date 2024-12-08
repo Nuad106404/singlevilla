@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
-import { Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 
-export function DashboardLayout() {
+interface DashboardLayoutProps {
+  children: React.ReactNode;
+}
+
+const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
 
@@ -27,10 +30,12 @@ export function DashboardLayout() {
         <Header toggleTheme={toggleTheme} isDarkMode={isDarkMode} />
         <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 dark:bg-gray-900">
           <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <Outlet />
+            {children}
           </div>
         </main>
       </div>
     </div>
   );
-}
+};
+
+export default DashboardLayout;

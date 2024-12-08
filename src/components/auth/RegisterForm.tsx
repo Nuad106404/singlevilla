@@ -57,14 +57,15 @@ export function RegisterForm() {
         email: formData.email,
         password: formData.password,
         firstName: formData.firstName,
-        lastName: formData.lastName,
+        lastName: formData.lastName
       })).unwrap();
       
       if (resultAction) {
         navigate('/admin/dashboard');
       }
-    } catch (error) {
+    } catch (error: any) {
       // Error is handled by the reducer
+      console.error('Registration error:', error);
     }
   };
 

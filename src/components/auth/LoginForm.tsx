@@ -1,218 +1,246 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
-import { Eye, EyeOff, Mail, Lock } from 'lucide-react';
-import { useAppDispatch } from '../../hooks/useAppDispatch';
-import { useAppSelector } from '../../hooks/useAppSelector';
-import { login, clearError } from '../../store/slices/authSlice';
+import { Eye, EyeOff, Mail, Lock, AlertCircle } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 import { AuthLayout } from './AuthLayout';
+
+interface LocationState {
+  from?: string;
+}
 
 export function LoginForm() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const dispatch = useAppDispatch();
-  const { isLoading, error } = useAppSelector((state) => state.auth);
+  const location = useLocation();
+  const { login, isLoading, error, clearError, user } = useAuth();
+  const locationState = location.state as LocationState;
+  const from = locationState?.from || '/';
   
   const [formData, setFormData] = useState({
     email: '',
     password: '',
   });
   const [showPassword, setShowPassword] = useState(false);
+  const [formError, setFormError] = useState('');
+
+  useEffect(() => {
+    // Redirect if already logged in
+    if (user) {
+      if (user.role === 'admin') {
+        navigate('/admin/dashboard', { replace: true });
+      } else {
+        navigate(from, { replace: true });
+      }
+    }
+  }, [user, navigate, from]);
 
   useEffect(() => {
     // Clear any existing errors when component mounts
-    dispatch(clearError());
-  }, [dispatch]);
+    clearError();
+    setFormError('');
+  }, [clearError]);
+
+  const validateForm = () => {
+    if (!formData.email || !formData.password) {
+      setFormError(t('auth.allFieldsRequired'));
+      return false;
+    }
+    
+    if (!/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(formData.email)) {
+      setFormError(t('auth.invalidEmail'));
+      return false;
+    }
+
+    if (formData.password.length < 6) {
+      setFormError(t('auth.passwordTooShort'));
+      return false;
+    }
+
+    return true;
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
-    if (error) {
-      dispatch(clearError());
-    }
+    setFormError('');
+    clearError();
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!validateForm()) {
+      return;
+    }
+
     try {
-      const resultAction = await dispatch(login({ 
-        email: formData.email, 
-        password: formData.password 
-      })).unwrap();
-      if (resultAction) {
-        navigate('/admin/dashboard');
-      }
-    } catch (error) {
-      // Error is handled by the reducer
+      await login(formData.email, formData.password);
+      // The AuthRoute component will handle redirection based on:
+      // 1. User role (admin/regular user)
+      // 2. Previous location (stored in location.state.from)
+    } catch (error: any) {
+      console.error('Login error:', error);
+      setFormError(error.response?.data?.message || t('auth.loginFailed'));
     }
   };
 
-  const inputVariants = {
-    focus: { scale: 1.02 },
-    blur: { scale: 1 },
-  };
-
   return (
-    <AuthLayout
-      title={t('auth.login')}
-      subtitle={t('auth.loginSubtitle')}
-    >
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {error && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-red-50 dark:bg-red-900/50 text-red-600 dark:text-red-200 p-3 rounded-lg text-sm"
-          >
-            {error}
-          </motion.div>
-        )}
-
-        {/* Email Input */}
-        <div className="space-y-2">
-          <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            {t('auth.email')}
-          </label>
-          <motion.div
-            variants={inputVariants}
-            whileFocus="focus"
-            animate="blur"
-            className="relative"
-          >
-            <input
-              id="email"
-              name="email"
-              type="email"
-              value={formData.email}
-              onChange={handleChange}
-              className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-amber-500 dark:focus:ring-amber-400 focus:border-transparent dark:bg-gray-800 dark:text-white transition-all duration-200"
-              required
-            />
-            <Mail className="absolute left-3 top-3.5 h-5 w-5 text-gray-400" />
-          </motion.div>
+    <AuthLayout>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="w-full max-w-md"
+      >
+        <div className="text-center mb-8">
+          <h2 className="text-3xl font-bold text-gray-900 dark:text-white">
+            {t('auth.welcomeBack')}
+          </h2>
+          <p className="mt-2 text-gray-600 dark:text-gray-400">
+            {t('auth.loginToContinue')}
+          </p>
         </div>
 
-        {/* Password Input */}
-        <div className="space-y-2">
-          <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            {t('auth.password')}
-          </label>
-          <motion.div
-            variants={inputVariants}
-            whileFocus="focus"
-            animate="blur"
-            className="relative"
-          >
-            <input
-              id="password"
-              name="password"
-              type={showPassword ? 'text' : 'password'}
-              value={formData.password}
-              onChange={handleChange}
-              className="w-full pl-10 pr-12 py-3 rounded-lg border border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-amber-500 dark:focus:ring-amber-400 focus:border-transparent dark:bg-gray-800 dark:text-white transition-all duration-200"
-              required
-            />
-            <Lock className="absolute left-3 top-3.5 h-5 w-5 text-gray-400" />
-            <button
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div>
+            <label
+              htmlFor="email"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
             >
-              {showPassword ? (
-                <EyeOff className="h-5 w-5" />
-              ) : (
-                <Eye className="h-5 w-5" />
-              )}
-            </button>
-          </motion.div>
-        </div>
-
-        {/* Remember Me & Forgot Password */}
-        <div className="flex items-center justify-between text-sm">
-          <label className="flex items-center space-x-2 text-gray-600 dark:text-gray-400">
-            <input
-              type="checkbox"
-              className="rounded border-gray-300 dark:border-gray-600 text-amber-600 focus:ring-amber-500 dark:focus:ring-amber-400"
-            />
-            <span>{t('auth.rememberMe')}</span>
-          </label>
-          <a
-            href="/forgot-password"
-            className="text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 transition-colors"
-          >
-            {t('auth.forgotPassword')}
-          </a>
-        </div>
-
-        {/* Submit Button */}
-        <motion.button
-          type="submit"
-          disabled={isLoading}
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          className="w-full py-3 px-4 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white font-medium rounded-lg shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
-        >
-          {isLoading ? (
-            <div className="flex items-center justify-center space-x-2">
-              <motion.div
-                animate={{ rotate: 360 }}
-                transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                className="w-5 h-5 border-2 border-white border-t-transparent rounded-full"
+              {t('auth.email')}
+            </label>
+            <div className="mt-1 relative rounded-md shadow-sm">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Mail className="h-5 w-5 text-gray-400" />
+              </div>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                autoComplete="email"
+                required
+                value={formData.email}
+                onChange={handleChange}
+                className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 sm:text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                placeholder={t('auth.enterEmail')}
               />
-              <span>{t('common.loading')}</span>
             </div>
-          ) : (
-            t('auth.loginButton')
-          )}
-        </motion.button>
-
-        {/* Register Link */}
-        <p className="text-center text-sm text-gray-600 dark:text-gray-400">
-          {t('auth.noAccount')}{' '}
-          <a
-            href="/register"
-            className="text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 font-medium transition-colors"
-          >
-            {t('auth.registerLink')}
-          </a>
-        </p>
-
-        {/* Social Login */}
-        <div className="relative">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-gray-300 dark:border-gray-600" />
           </div>
-          <div className="relative flex justify-center text-sm">
-            <span className="px-2 bg-white dark:bg-gray-900 text-gray-500 dark:text-gray-400">
-              {t('auth.orContinueWith')}
-            </span>
-          </div>
-        </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <motion.button
-            type="button"
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className="flex items-center justify-center space-x-2 py-2.5 px-4 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200"
-          >
-            <img src="/google.svg" alt="Google" className="w-5 h-5" />
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              Google
-            </span>
-          </motion.button>
-          <motion.button
-            type="button"
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className="flex items-center justify-center space-x-2 py-2.5 px-4 bg-[#1877F2] hover:bg-[#1864D9] text-white rounded-lg transition-colors duration-200"
-          >
-            <img src="/facebook.svg" alt="Facebook" className="w-5 h-5" />
-            <span className="text-sm font-medium">Facebook</span>
-          </motion.button>
-        </div>
-      </form>
+          <div>
+            <label
+              htmlFor="password"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              {t('auth.password')}
+            </label>
+            <div className="mt-1 relative rounded-md shadow-sm">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Lock className="h-5 w-5 text-gray-400" />
+              </div>
+              <input
+                id="password"
+                name="password"
+                type={showPassword ? 'text' : 'password'}
+                autoComplete="current-password"
+                required
+                value={formData.password}
+                onChange={handleChange}
+                className="block w-full pl-10 pr-10 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 sm:text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                placeholder={t('auth.enterPassword')}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center"
+              >
+                {showPassword ? (
+                  <EyeOff className="h-5 w-5 text-gray-400" />
+                ) : (
+                  <Eye className="h-5 w-5 text-gray-400" />
+                )}
+              </button>
+            </div>
+          </div>
+
+          <AnimatePresence mode="wait">
+            {(error || formError) && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="rounded-md bg-red-50 dark:bg-red-900/50 p-4"
+              >
+                <div className="flex">
+                  <div className="flex-shrink-0">
+                    <AlertCircle className="h-5 w-5 text-red-400" />
+                  </div>
+                  <div className="ml-3">
+                    <p className="text-sm text-red-700 dark:text-red-200">
+                      {error || formError}
+                    </p>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <input
+                id="remember-me"
+                name="remember-me"
+                type="checkbox"
+                className="h-4 w-4 text-amber-600 focus:ring-amber-500 border-gray-300 rounded"
+              />
+              <label
+                htmlFor="remember-me"
+                className="ml-2 block text-sm text-gray-900 dark:text-gray-300"
+              >
+                {t('auth.rememberMe')}
+              </label>
+            </div>
+
+            <div className="text-sm">
+              <a
+                href="/forgot-password"
+                className="font-medium text-amber-600 hover:text-amber-500"
+              >
+                {t('auth.forgotPassword')}
+              </a>
+            </div>
+          </div>
+
+          <div>
+            <motion.button
+              type="submit"
+              disabled={isLoading}
+              whileHover={{ scale: 1.01 }}
+              whileTap={{ scale: 0.99 }}
+              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-amber-600 hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+            >
+              {isLoading ? (
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                t('auth.login')
+              )}
+            </motion.button>
+          </div>
+
+          <div className="text-center">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              {t('auth.noAccount')}{' '}
+              <a
+                href="/register"
+                className="font-medium text-amber-600 hover:text-amber-500"
+              >
+                {t('auth.signUp')}
+              </a>
+            </p>
+          </div>
+        </form>
+      </motion.div>
     </AuthLayout>
   );
 }

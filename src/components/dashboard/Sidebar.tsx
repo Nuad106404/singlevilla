@@ -8,6 +8,7 @@ import {
   LogOut,
   ChevronLeft,
   ChevronRight,
+  Calendar,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAppDispatch } from '../../hooks/useAppDispatch';
@@ -24,6 +25,8 @@ export function Sidebar({ isCollapsed, toggleSidebar }: SidebarProps) {
 
   const handleLogout = () => {
     dispatch(logout());
+    // Navigate to home page after logout
+    window.location.href = '/';
   };
 
   const menuItems = [
@@ -31,6 +34,11 @@ export function Sidebar({ isCollapsed, toggleSidebar }: SidebarProps) {
       path: '/admin/dashboard',
       name: t('dashboard.overview'),
       icon: LayoutDashboard,
+    },
+    {
+      path: '/admin/bookings',
+      name: t('dashboard.bookings'),
+      icon: Calendar,
     },
     {
       path: '/admin/users',
@@ -50,45 +58,43 @@ export function Sidebar({ isCollapsed, toggleSidebar }: SidebarProps) {
       animate={{ width: isCollapsed ? 80 : 250 }}
       className="h-screen bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 flex flex-col"
     >
-      {/* Logo */}
       <div className="p-4 flex items-center justify-between">
         {!isCollapsed && (
-          <motion.h1
+          <motion.span
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="text-xl font-bold text-gray-800 dark:text-white"
+            className="text-xl font-bold text-amber-600"
           >
-            Admin Panel
-          </motion.h1>
+            Admin
+          </motion.span>
         )}
         <button
           onClick={toggleSidebar}
           className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
         >
           {isCollapsed ? (
-            <ChevronRight className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+            <ChevronRight className="h-5 w-5 text-gray-500 dark:text-gray-400" />
           ) : (
-            <ChevronLeft className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+            <ChevronLeft className="h-5 w-5 text-gray-500 dark:text-gray-400" />
           )}
         </button>
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 px-2 py-4">
-        <ul className="space-y-2">
+      <nav className="flex-1 overflow-y-auto">
+        <ul className="p-2 space-y-1">
           {menuItems.map((item) => (
-            <li key={item.path}>
+            <motion.li key={item.path}>
               <NavLink
                 to={item.path}
                 className={({ isActive }) =>
                   `flex items-center px-4 py-2 rounded-lg transition-colors ${
                     isActive
-                      ? 'bg-amber-100 dark:bg-amber-900 text-amber-600 dark:text-amber-400'
+                      ? 'bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400'
                       : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
                   }`
                 }
               >
-                <item.icon className="w-5 h-5" />
+                <item.icon className="h-5 w-5" />
                 {!isCollapsed && (
                   <motion.span
                     initial={{ opacity: 0 }}
@@ -99,25 +105,24 @@ export function Sidebar({ isCollapsed, toggleSidebar }: SidebarProps) {
                   </motion.span>
                 )}
               </NavLink>
-            </li>
+            </motion.li>
           ))}
         </ul>
       </nav>
 
-      {/* Logout Button */}
-      <div className="p-4">
+      <div className="p-2 border-t border-gray-200 dark:border-gray-800">
         <button
           onClick={handleLogout}
-          className="flex items-center w-full px-4 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+          className="w-full flex items-center px-4 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
         >
-          <LogOut className="w-5 h-5" />
+          <LogOut className="h-5 w-5" />
           {!isCollapsed && (
             <motion.span
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               className="ml-3"
             >
-              {t('dashboard.logout')}
+              {t('auth.logout')}
             </motion.span>
           )}
         </button>

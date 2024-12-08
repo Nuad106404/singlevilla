@@ -79,6 +79,8 @@ const authSlice = createSlice({
       state.token = null;
       state.error = null;
       localStorage.removeItem('token');
+      // Remove Authorization header
+      delete api.defaults.headers.common['Authorization'];
     },
     clearError(state) {
       state.error = null;

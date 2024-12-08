@@ -16,24 +16,44 @@ const pageVariants = {
 export function BookingPage() {
   const location = useLocation();
   const navigate = useNavigate();
-  const [bookingState, setBookingState] = React.useState<BookingState>({
-    step: 1,
-    customerInfo: {
-      firstName: '',
-      lastName: '',
-      email: '',
-      phone: '',
-    },
-    bookingDetails: location.state?.bookingDetails || null,
-    paymentMethod: null,
-    reservationId: null,
+  const [bookingState, setBookingState] = React.useState<BookingState>(() => {
+    // Initialize state from location or redirect
+    if (!location.state?.bookingDetails) {
+      navigate('/', { replace: true });
+      return {
+        step: 1,
+        customerInfo: {
+          firstName: '',
+          lastName: '',
+          email: '',
+          phone: '',
+        },
+        bookingDetails: null,
+        paymentMethod: null,
+        reservationId: null,
+      };
+    }
+
+    return {
+      step: 1,
+      customerInfo: {
+        firstName: '',
+        lastName: '',
+        email: '',
+        phone: '',
+      },
+      bookingDetails: location.state.bookingDetails,
+      paymentMethod: null,
+      reservationId: null,
+    };
   });
 
+  // Redirect if no booking details are present
   React.useEffect(() => {
-    if (!location.state?.bookingDetails) {
-      navigate('/');
+    if (!bookingState.bookingDetails) {
+      navigate('/', { replace: true });
     }
-  }, [location.state, navigate]);
+  }, [bookingState.bookingDetails, navigate]);
 
   const handleCustomerInfoSubmit = (data: CustomerInfo) => {
     setBookingState((prev) => ({
@@ -44,22 +64,34 @@ export function BookingPage() {
   };
 
   const handlePaymentMethodSelect = async (method: 'bank_transfer' | 'promptpay', slip: File) => {
-    // First update the payment method
-    setBookingState((prev) => ({
-      ...prev,
-      paymentMethod: method,
-    }));
+    try {
+      setBookingState((prev) => ({
+        ...prev,
+        paymentMethod: method,
+      }));
 
-    // Simulate payment processing
-    await new Promise(resolve => setTimeout(resolve, 1000));
+      // Simulate payment processing
+      await new Promise(resolve => setTimeout(resolve, 1500));
 
-    // Then complete the booking and move to step 3
-    setBookingState((prev) => ({
-      ...prev,
-      step: 3,
-      reservationId: `RES${Date.now().toString(36).toUpperCase()}`,
-    }));
+      // Generate a unique reservation ID
+      const timestamp = Date.now();
+      const random = Math.random().toString(36).substring(2, 8);
+      const reservationId = `RES${timestamp}${random}`.toUpperCase();
+
+      setBookingState((prev) => ({
+        ...prev,
+        step: 3,
+        reservationId,
+      }));
+    } catch (error) {
+      console.error('Error processing payment:', error);
+      // Handle payment error here
+    }
   };
+
+  if (!bookingState.bookingDetails) {
+    return null; // or a loading state
+  }
 
   return (
     <motion.div 
@@ -105,3 +137,5 @@ export function BookingPage() {
     </motion.div>
   );
 }
+
+export default BookingPage;
